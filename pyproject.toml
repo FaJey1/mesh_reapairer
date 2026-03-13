@@ -1,0 +1,87 @@
+ [build-system]
+ requires = ["setuptools>=68.0.0"]
+ build-backend = "setuptools.build_meta"
+
+ [project]
+ name = "mesh-reapairer"
+ version = "0.1.0"
+ authors = [
+   { name = "Alexey Rybakov", email = "rybakov.aax@gmail.com" },
+   { name = "Pavel Tsyngalev", email = "ptsyngalev@gmail.com" },
+ ]
+ description = "Toolkit for detecting and repairing self-intersections in meshes with visualization."
+ readme = "Readme.md"
+ requires-python = ">=3.13"
+ classifiers = [
+   "Programming Language :: Python :: 3",
+   "Programming Language :: Python :: 3 :: Only",
+   "License :: OSI Approved :: MIT License",
+   "Operating System :: OS Independent",
+ ]
+ dependencies = [
+   "numpy>=1.24",
+   "scipy>=1.11",
+   "shapely>=2.0",
+   "matplotlib>=3.8",
+   "networkx",
+   "yaspin",
+   "tabulate",
+   "pandas",
+   "pygraphviz",
+ ]
+
+[project.optional-dependencies]
+dev = [
+  "mypy==1.19.1",
+  "ruff==0.15.1",
+  "pre-commit==4.5.1",
+  "pytest>=7.0",
+  "pyinstaller>=6.13.0",
+]
+
+graphviz = [
+  "pygraphviz",
+]
+
+ [project.urls]
+ Homepage = "https://example.com/mesh-reapairer"
+ Issues = "https://example.com/mesh-reapairer/issues"
+
+ [project.scripts]
+ mesh-reapairer = "mesh_reapairer.cli.main:main"
+
+ [tool.setuptools.packages.find]
+ where = ["src"]
+
+ [dependency-groups]
+ dev = [
+   "mypy==1.19.1",
+   "ruff==0.15.1",
+   "pre-commit==4.5.1",
+   "pytest>=7.0",
+   "pyinstaller>=6.13.0",
+ ]
+
+ [tool.mypy]
+ python_version = "3.13"
+ strict = true
+ ignore_missing_imports = true
+ warn_unused_ignores = true
+ warn_redundant_casts = true
+ warn_unreachable = true
+ pretty = true
+exclude = "src/mesh_reapairer/msu/mesh\\.py"
+
+ [tool.ruff]
+ target-version = "py313"
+ line-length = 120
+extend-exclude = ["src/mesh_reapairer/msu/mesh.py"]
+
+ [tool.ruff.lint]
+ select = ["E", "F", "I", "B", "UP"]
+ ignore = ["E501"]
+
+ [tool.ruff.format]
+ quote-style = "double"
+ indent-style = "space"
+
