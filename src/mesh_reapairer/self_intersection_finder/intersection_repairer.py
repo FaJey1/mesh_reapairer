@@ -132,18 +132,17 @@ class IntersectionRepairer:
         """
         Строит beta-графы из `p_invalid`.
 
-        Beta-узел = пара ячеек (face_a_id, face_b_id), для которой пересечение
+        Beta-узел = пара ячеек (face_a.glo_id, face_b.glo_id), для которой пересечение
         было невалидным / сломанным.
 
-        Узлы графа: пары (min_id, max_id)
-        Атрибуты узла:
-        - faces: (face_a_id, face_b_id)
+        Узлы графа:
+        - faces: (face_a.glo_id, face_b.glo_id)
         - center: (center(face_a) + center(face_b)) / 2
 
-        Сейчас beta-граф используется для визуализации, поэтому рёбра не строятся.
+        Сейчас beta-граф используется для визуализации, рёбра не строятся.
         """
-        G = nx.Graph()
 
+        G = nx.Graph()
         for item in self.p_invalid:
             # ожидаемый формат: (face_a, face_b) или (face_a, face_b, ...)
             if not isinstance(item, (tuple, list)) or len(item) < 2:
@@ -154,33 +153,32 @@ class IntersectionRepairer:
                 )
                 continue
 
-            face_a = item[0]
-            face_b = item[1]
+            face_a, face_b = item[:2]
+
             if not hasattr(face_a, "glo_id") or not hasattr(face_b, "glo_id"):
                 logger.debug(
                     "IntersectionRepairer: build_beta_area skip item without faces: %r",
-                    item.glo_id,
+                    item,
                 )
                 continue
 
             pair = tuple(sorted((face_a.glo_id, face_b.glo_id)))
 
+            # центр beta-узла
             ca = np.asarray(face_a.center(), dtype=float)
             cb = np.asarray(face_b.center(), dtype=float)
             center = (ca + cb) * 0.5
 
-            G.add_node(pair, faces=(face_a.glo_id, face_b.glo_id), center=center)
+            # добавляем вершину с атрибутами
+            G.add_node(pair, faces=pair, center=center)
 
+        # сохраняем граф в объекте
         self.beta_graphs = [G] if G.number_of_nodes() > 0 else []
 
-        logger.debug(
-            "IntersectionRepairer: build_beta_area candidates: %s",
-            len(self.p_invalid),
-        )
-        logger.debug(
-            "IntersectionRepairer: build_beta_area beta nodes: %s",
-            G.number_of_nodes(),
-        )
+        # безопасное логирование только ID
+        beta_nodes = [n for n in G.nodes()]
+        logger.debug("IntersectionRepairer: build_beta_area candidates: %s", len(self.p_invalid))
+        logger.debug("IntersectionRepairer: build_beta_area beta nodes: %s", beta_nodes)
 
 
     def find_lost_segments(self) -> None:
