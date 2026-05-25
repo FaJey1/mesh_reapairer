@@ -4,10 +4,10 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mesh_reapairer.msu.mesh import *
+from mesh_reapairer.src.mesh_reapairer.msu.mesh import *
 from mesh_reapairer.self_intersection_finder.bvh_builder import *
 
-from mesh_reapairer.vizualizator.plane_plotter import *
+from mesh_reapairer.src.mesh_reapairer.vizualizator.plane_plotter import *
 
 
 def plot_primitive(ax,

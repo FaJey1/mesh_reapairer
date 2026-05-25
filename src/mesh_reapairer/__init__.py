@@ -7,3 +7,7 @@ The package provides:
 - domain modules for mesh structure, self-intersection search, restoration, and visualization;
 - an application orchestrator used by the CLI entry point.
 """
+
+from mesh_reapairer.src.mesh_reapairer.application.orchestrator import repair_mesh
+
+__all__ = ["repair_mesh"]

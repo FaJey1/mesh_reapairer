@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
-
+from mesh_reapairer.src.mesh_reapairer.msu.mesh import Mesh
+from mesh_reapairer.self_intersection_finder.bvh_builder import BVHBuilder
+from mesh_reapairer.self_intersection_finder.intersection_repairer import IntersectionRepairer
 
 def plot_intersection_graph(
     alpha_graphs: Iterable,
@@ -14,144 +17,128 @@ def plot_intersection_graph(
     scale: float = 1.0,
     debug: bool = False,
 ) -> None:
-
-    fig = plt.figure(figsize=(10,10))
+    fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
 
-    # Собираем центры узлов (сегментов) и вычисляем центр сцены один раз
-    centers_list: list[np.ndarray] = [
-        np.asarray(graph.nodes[node]["center"], dtype=float)
-        for graph in alpha_graphs
-        for node in graph.nodes
-    ]
-    if beta_graphs is not None:
-        centers_list.extend(
-            [
-                np.asarray(graph.nodes[node]["center"], dtype=float)
-                for graph in beta_graphs
-                for node in graph.nodes
-            ]
-        )
-
-    if not centers_list:
-        print("Нет сегментов")
-        return
-    scene_center = np.mean(np.stack(centers_list, axis=0), axis=0)
-
-    # ------------------------------------------------
-    # рисуем сегменты (вершины графа)
-
-    xs_red: list[float] = []
-    ys_red: list[float] = []
-    zs_red: list[float] = []
-    xs_green: list[float] = []
-    ys_green: list[float] = []
-    zs_green: list[float] = []
-    xs_orange: list[float] = []
-    ys_orange: list[float] = []
-    zs_orange: list[float] = []
-    xs_yellow: list[float] = []
-    ys_yellow: list[float] = []
-    zs_yellow: list[float] = []
-
+    # 1. Сбор всех центров для вычисления общего центра сцены
+    all_nodes_data = []
     for graph in alpha_graphs:
-
         for node in graph.nodes:
-
-            data = graph.nodes[node]
-
-            center = np.asarray(data["center"], dtype=float) - scene_center
-            degree = graph.degree(node)
-
-            if degree == 1:
-                xs_red.append(center[0] * scale)
-                ys_red.append(center[1] * scale)
-                zs_red.append(center[2] * scale)
-            elif degree == 2:
-                xs_green.append(center[0] * scale)
-                ys_green.append(center[1] * scale)
-                zs_green.append(center[2] * scale)
-            else:
-                if debug:
-                    xs_orange.append(center[0] * scale)
-                    ys_orange.append(center[1] * scale)
-                    zs_orange.append(center[2] * scale)
-                else:
-                    xs_green.append(center[0] * scale)
-                    ys_green.append(center[1] * scale)
-                    zs_green.append(center[2] * scale)
-
-            # подпись
-            label = f"{node}"
-
-            ax.text(
-                center[0]*scale,
-                center[1]*scale,
-                center[2]*scale,
-                label,
-                size=6
-            )
-
-    # ------------------------------------------------
-    # рисуем beta-вершины (пары из p_invalid) — жёлтым
+            all_nodes_data.append(np.asarray(graph.nodes[node]["center"], dtype=float))
+    
     if beta_graphs is not None:
         for graph in beta_graphs:
             for node in graph.nodes:
-                c = np.asarray(graph.nodes[node]["center"], dtype=float) - scene_center
-                xs_yellow.append(c[0] * scale)
-                ys_yellow.append(c[1] * scale)
-                zs_yellow.append(c[2] * scale)
-                
-                label = f"{node}"
-                ax.text(
-                    c[0]*scale,
-                    c[1]*scale,
-                    c[2]*scale,
-                    label,
-                    size=6
-                )
+                all_nodes_data.append(np.asarray(graph.nodes[node]["center"], dtype=float))
 
-    # ------------------------------------------------
-    # рисуем связи между сегментами
+    if not all_nodes_data:
+        print("IntersectionRepairer: Нет данных для отрисовки")
+        return
 
-    segments: list[list[list[float]]] = []
+    scene_center = np.mean(np.stack(all_nodes_data, axis=0), axis=0)
+
+    # Контейнеры для батчинга точек
+    pts = {
+        "red": ([], [], []),    # Альфа-якоря (deg=1)
+        "green": ([], [], []),  # Альфа-внутренние
+        "orange": ([], [], []), # Альфа-разветвления (deg > 2)
+        "yellow": ([], [], [])  # Бетта-узлы
+    }
+
+    # 2. Обработка Alpha-графов
+    alpha_segments = []
+    anchor_nodes = []  # Якоря: (node, координаты)
     for graph in alpha_graphs:
+        for node in graph.nodes:
+            data = graph.nodes[node]
+            c = (np.asarray(data["center"], dtype=float) - scene_center) * scale
+            deg = graph.degree(node)
+
+            if deg == 1:
+                color = "red"
+                anchor_nodes.append((node, c))  # Сохраняем узел и координаты якоря
+            elif deg == 2:
+                color = "green"
+            else:
+                color = "orange" if debug else "green"
+
+            pts[color][0].append(c[0]); pts[color][1].append(c[1]); pts[color][2].append(c[2])
+
+            label = f"[{node[0].glo_id},{node[1].glo_id}]"
+            ax.text(c[0], c[1], c[2], label, size=6, alpha=0.7)
 
         for u, v in graph.edges:
+            c1 = (np.asarray(graph.nodes[u]["center"], dtype=float) - scene_center) * scale
+            c2 = (np.asarray(graph.nodes[v]["center"], dtype=float) - scene_center) * scale
+            alpha_segments.append([c1, c2])
 
-            c1 = np.asarray(graph.nodes[u]["center"], dtype=float) - scene_center
-            c2 = np.asarray(graph.nodes[v]["center"], dtype=float) - scene_center
-            segments.append(
-                [
-                    [c1[0] * scale, c1[1] * scale, c1[2] * scale],
-                    [c2[0] * scale, c2[1] * scale, c2[2] * scale],
-                ]
-            )
+    # 3. Обработка Beta-графов
+    beta_segments = []
+    beta_nodes = []  # Бета-узлы: (node, координаты)
+    if beta_graphs is not None:
+        for graph in beta_graphs:
+            for node in graph.nodes:
+                data = graph.nodes[node]
+                c = (np.asarray(data["center"], dtype=float) - scene_center) * scale
+                pts["yellow"][0].append(c[0]); pts["yellow"][1].append(c[1]); pts["yellow"][2].append(c[2])
+                beta_nodes.append((node, c))  # Сохраняем узел и координаты
 
-    # Батчинг scatter (matplotlib резко быстрее, чем по одному вызову на узел)
-    if xs_red:
-        ax.scatter(xs_red, ys_red, zs_red, color="red", s=80)
-    if xs_green:
-        ax.scatter(xs_green, ys_green, zs_green, color="green", s=40)
-    if xs_orange:
-        ax.scatter(xs_orange, ys_orange, zs_orange, color="orange", s=70)
-    if xs_yellow:
-        ax.scatter(xs_yellow, ys_yellow, zs_yellow, color="yellow", s=60)
+                label = f"b[{node[0].glo_id},{node[1].glo_id}]"
+                ax.text(c[0], c[1], c[2], label, size=6, color="purple")
 
-    # Батчинг линий через коллекцию
-    if segments:
-        lc = Line3DCollection(segments, colors="black", linewidths=1)
-        ax.add_collection3d(lc)
+            for u, v in graph.edges:
+                c1 = (np.asarray(graph.nodes[u]["center"], dtype=float) - scene_center) * scale
+                c2 = (np.asarray(graph.nodes[v]["center"], dtype=float) - scene_center) * scale
+                beta_segments.append([c1, c2])
 
-    ax.set_title("Intersection Graph (oriented)")
+    # Создание сегментов между якорями и бета-узлами (только если есть общая ячейка)
+    anchor_beta_segments = []
+    for anchor_node, anchor_coord in anchor_nodes:
+        for beta_node, beta_coord in beta_nodes:
+            # Проверяем, есть ли общий треугольник (ячейка) между якорем и бета-узлом
+            anchor_cells = {anchor_node[0], anchor_node[1]}
+            beta_cells = {beta_node[0], beta_node[1]}
+            if anchor_cells & beta_cells:  # Если есть пересечение множеств
+                anchor_beta_segments.append([anchor_coord, beta_coord])
+
+    # 4. Отрисовка
+    # Точки
+    if pts["red"][0]:    ax.scatter(*pts["red"], color="red", s=80, label="Alpha Anchor")
+    if pts["green"][0]:  ax.scatter(*pts["green"], color="green", s=40, label="Alpha Internal")
+    if pts["orange"][0]: ax.scatter(*pts["orange"], color="orange", s=70)
+    if pts["yellow"][0]: ax.scatter(*pts["yellow"], color="yellow", s=60, edgecolors="purple", label="Beta")
+
+    # Ребра Alpha (черные сплошные)
+    if alpha_segments:
+        ax.add_collection3d(Line3DCollection(alpha_segments, colors="black", linewidths=1.2))
+
+    # Ребра Beta (фиолетовые пунктирные)
+    if beta_segments:
+        ax.add_collection3d(Line3DCollection(beta_segments, colors="purple", linewidths=0.8, linestyles="--", alpha=0.5))
+
+    # Соединения якорей с бета-узлами (фиолетовые пунктирные)
+    if anchor_beta_segments:
+        ax.add_collection3d(Line3DCollection(anchor_beta_segments, colors="purple", linewidths=0.6, linestyles="--", alpha=0.3))
+
+    ax.set_title("Intersection Graph: Alpha (solid) & Beta (dashed)")
+    ax.set_xlabel("X"); ax.set_ylabel("Y"); ax.set_zlabel("Z")
+    
+    # Автомасштаб осей для сохранения пропорций
+    all_pts = np.array(all_nodes_data) - scene_center
+    max_range = (all_pts.max(axis=0) - all_pts.min(axis=0)).max() / 2.0 * scale
+    ax.set_xlim(-max_range, max_range)
+    ax.set_ylim(-max_range, max_range)
+    ax.set_zlim(-max_range, max_range)
+
     plt.show()
 
 
 if __name__ == '__main__':
-    from mesh_reapairer.msu.mesh import Mesh
-    from mesh_reapairer.self_intersection_finder.bvh_builder import BVHBuilder
-    from mesh_reapairer.self_intersection_finder.intersection_repairer import IntersectionRepairer
-
+    logging.basicConfig(
+        level=logging.DEBUG, 
+        format='%(levelname)s: %(message)s'
+    )
+    
     mesh = Mesh("examples/small_sphere_double.dat")
     #mesh = Mesh("examples/sphere_double.dat")
     #mesh = Mesh("examples/bunny_double.dat")
@@ -161,19 +148,18 @@ if __name__ == '__main__':
     bvh.build_tree(face_on_leaf=1, split_func="sah")
     bvh.traversal_tree()
     
-    p_valid = bvh.p_valid[0:3]
-    p_valid += bvh.p_valid[5:7]
+    p_valid = bvh.p_valid[:2]
+    p_valid += bvh.p_valid[6:8]
     p_valid += bvh.p_valid[9:]
     
-    p_invalid = list(bvh.p_invalid)
-    p_invalid += bvh.p_valid[4:5]
+    p_invalid = bvh.p_invalid
+    p_invalid += bvh.p_valid[2:6]
     p_invalid.append(bvh.p_valid[8])
     
-    ir =IntersectionRepairer(p_valid, p_invalid, eps=1e-12)
+    ir =IntersectionRepairer(mesh=mesh, p_valid=p_valid, p_invalid=p_invalid, eps=1e-12)
+    #ir =IntersectionRepairer(mesh, bvh.p_valid, bvh.p_invalid, eps=1e-12)
     ir.build_alpha_area()
     ir.build_beta_area()
-    
-    #plot_intersection_graph(ir.alpha_graphs, ir.beta_graphs)
-    # ir.find_lost_segments()
-    # ir.build_alpha_area()
-    # plot_intersection_graph(ir.alpha_graphs)
+    plot_intersection_graph(alpha_graphs=ir.alpha_graphs, beta_graphs=ir.beta_graphs, debug=False)
+    ir.find_lost_segments()
+    plot_intersection_graph(alpha_graphs=ir.alpha_graphs,beta_graphs=ir.beta_graphs,debug=True)

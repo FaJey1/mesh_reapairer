@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from mesh_reapairer import repair_mesh
-from mesh_reapairer.msu import Mesh
+from mesh_reapairer.src.mesh_reapairer import repair_mesh
+from mesh_reapairer.src.mesh_reapairer.msu import Mesh
 
 
 def test_repair_mesh_is_callable() -> None:

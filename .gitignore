@@ -10,7 +10,4 @@ examples/
 *.egg-info/
 *.spec
 
-# Local docs kept in repo root
-uv-python.md
-python-style.md
-docs.md
+materials/

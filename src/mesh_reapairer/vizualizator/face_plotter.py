@@ -4,9 +4,9 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mesh_reapairer.msu.mesh import *
+from mesh_reapairer.src.mesh_reapairer.msu.mesh import *
 
-from mesh_reapairer.vizualizator.plane_plotter import *
+from mesh_reapairer.src.mesh_reapairer.vizualizator.plane_plotter import *
 
 
 def plot_face(ax,
@@ -61,12 +61,37 @@ def plot_face(ax,
     if plane:
         plot_plane(ax=ax, face=face, color=color, alpha=plane_alpha, size=plane_size)
 
+def plot_faces_batch(
+    ax,
+    faces: list,
+    color_fn=None,
+    alpha: float = 0.3,
+    edges_enable: bool = False,
+    edges_linewidths: float = 0.3,
+) -> None:
+    """Render a list of faces in a single Poly3DCollection (fast path for large meshes)."""
+    if not faces:
+        return
+    if color_fn is None:
+        color_fn = lambda _: "blue"  # noqa: E731
+    verts = [np.array(f.points()) for f in faces]
+    colors = [color_fn(f) for f in faces]
+    col = Poly3DCollection(
+        verts,
+        alpha=alpha,
+        facecolors=colors,
+        edgecolors="black" if edges_enable else "none",
+        linewidths=edges_linewidths if edges_enable else 0.0,
+    )
+    ax.add_collection3d(col)
+
+
 if __name__ == '__main__':
     mesh = Mesh("examples/small_sphere_double.dat")
     
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection='3d')
-    plot_face(ax, mesh.faces[0], color="blue", edge_enable=True, draw_aabb=True, label=True, plane=True)
+    plot_face(ax, mesh.faces[0], color="blue", edges_enable=True, draw_aabb=True, label=True, plane=True)
     ax.set_title("Face Visualization")
     ax.set_xlabel('X')
     ax.set_ylabel('Y')

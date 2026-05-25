@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mesh_reapairer.infrastructure.io import load_mesh, save_mesh
-from mesh_reapairer.msu import Mesh
+from mesh_reapairer.src.mesh_reapairer.infrastructure.io import load_mesh, save_mesh
+from mesh_reapairer.src.mesh_reapairer.msu import Mesh
 
 
 def test_save_and_load_roundtrip(tmp_path: Path) -> None:

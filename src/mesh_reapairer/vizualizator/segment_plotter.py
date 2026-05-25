@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from mesh_reapairer.vizualizator.point_plotter import *
-from mesh_reapairer.vizualizator.line_plotter import *
+from mesh_reapairer.src.mesh_reapairer.vizualizator.point_plotter import *
+from mesh_reapairer.src.mesh_reapairer.vizualizator.line_plotter import *
 
 
 def plot_segment(ax,

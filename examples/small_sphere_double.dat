@@ -1,5 +1,5 @@
 #
-TITLE="small_sphere_double"
+TITLE=""
 VARIABLES="X", "Y", "Z", "M", "Id"
 ZONE T="ZONE 1"
 NODES=42

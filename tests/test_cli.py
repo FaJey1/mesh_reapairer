@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mesh_reapairer.cli.main import main
-from mesh_reapairer.infrastructure.io import load_mesh, save_mesh
-from mesh_reapairer.msu import Mesh
+from mesh_reapairer.src.mesh_reapairer.cli.main import main
+from mesh_reapairer.src.mesh_reapairer.infrastructure.io import load_mesh, save_mesh
+from mesh_reapairer.src.mesh_reapairer.msu import Mesh
 
 
 def test_cli_main_writes_output(tmp_path: Path) -> None:

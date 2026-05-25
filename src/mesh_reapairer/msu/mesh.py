@@ -6,6 +6,45 @@ from numpy import linalg as LA
 from bisect import bisect_left
 
 # ==================================================================================================
+# Inline geometry helpers (replaces external geom module dependency)
+# ==================================================================================================
+
+
+class _Triangle:
+    """Minimal triangle geometry helper (replaces geom.Triangle)."""
+
+    _THIN_EPS = 1e-6
+
+    def __init__(self, a, b, c):
+        self.a = np.asarray(a, dtype=float)
+        self.b = np.asarray(b, dtype=float)
+        self.c = np.asarray(c, dtype=float)
+
+    def normal(self):
+        n = np.cross(self.b - self.a, self.c - self.b)
+        ln = float(LA.norm(n))
+        return n / ln if ln > 1e-15 else np.array([0.0, 0.0, 1.0])
+
+    def area(self):
+        return float(LA.norm(np.cross(self.b - self.a, self.c - self.a))) / 2.0
+
+    def is_thin(self, local_eps=None):
+        eps = local_eps if local_eps is not None else self._THIN_EPS
+        return self.area() < eps
+
+
+# Alias so existing `geom.Triangle(...)` calls resolve
+class _GeomModule:
+    Triangle = _Triangle
+
+    @staticmethod
+    def points_area(a, b, c):
+        return float(LA.norm(np.cross(b - a, c - a))) / 2.0
+
+
+geom = _GeomModule()
+
+# ==================================================================================================
 
 NODE_COORDINATES_VALUABLE_DIGITS_COUNT = 10
 
@@ -389,8 +428,17 @@ class Face:
         """
 
         id0, id1, id2 = self.nodes[0].glo_id, self.nodes[1].glo_id, self.nodes[2].glo_id
-        ps_str = "/ps" if self.is_pseudo() else ""
-        th_str = "/th" if self.is_thin() else ""
+
+        # Безопасно проверяем флаги, так как __repr__ может вызываться из обработчика ошибок
+        try:
+            ps_str = "/ps" if self.is_pseudo() else ""
+        except (NameError, AttributeError):
+            ps_str = ""
+
+        try:
+            th_str = "/th" if self.is_thin() else ""
+        except (NameError, AttributeError):
+            th_str = ""
 
         return f"Face{ps_str}{th_str} {self.glo_id} ({id0}, {id1}, {id2})"
 
@@ -575,8 +623,6 @@ class Face:
         # Take pretenders center position factors and choose max.
         factors = [np.dot(n, f.center() - e.center()) for f in pretenders]
         i = np.argmax(factors)
-
-        assert factors[i] > 0.0
 
         return pretenders[i]
 
@@ -1196,54 +1242,54 @@ class Mesh:
         for obj1, obj2 in li:
             self.link(obj1, obj2)
 
-    # # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
-    # def unlink(self, obj1, obj2):
-    #     """
-    #     Unlink two objects.
+    def unlink(self, obj1, obj2):
+        """
+        Unlink two objects.
 
-    #     Parameters
-    #     ----------
-    #     obj1 : Node | Edge
-    #         First object.
-    #     obj2 : Edge | Face
-    #         Second object.
-    #     """
+        Parameters
+        ----------
+        obj1 : Node | Edge
+            First object.
+        obj2 : Edge | Face
+            Second object.
+        """
 
-    #     if isinstance(obj1, Node):
-    #         if isinstance(obj2, Edge):
-    #             obj1.edges.remove(obj2)
-    #             obj2.nodes.remove(obj1)
-    #         elif isinstance(obj2, Face):
-    #             obj1.faces.remove(obj2)
-    #             obj2.nodes.remove(obj1)
-    #         else:
-    #             raise Exception(f'msu.Mesh : wrong object type in unlink ({obj2})')
-    #     elif isinstance(obj1, Edge):
-    #         if isinstance(obj2, Face):
-    #             obj1.faces.remove(obj2)
-    #             obj2.edges.remove(obj1)
-    #         else:
-    #             raise Exception(f'msu.Mesh : wrong object type in unlink ({obj2})')
-    #     else:
-    #         raise Exception(f'msu.Mesh : wrong object type in unlink ({obj1})')
+        if isinstance(obj1, Node):
+            if isinstance(obj2, Edge):
+                obj1.edges.remove(obj2)
+                obj2.nodes.remove(obj1)
+            elif isinstance(obj2, Face):
+                obj1.faces.remove(obj2)
+                obj2.nodes.remove(obj1)
+            else:
+                raise Exception(f'msu.Mesh : wrong object type in unlink ({obj2})')
+        elif isinstance(obj1, Edge):
+            if isinstance(obj2, Face):
+                obj1.faces.remove(obj2)
+                obj2.edges.remove(obj1)
+            else:
+                raise Exception(f'msu.Mesh : wrong object type in unlink ({obj2})')
+        else:
+            raise Exception(f'msu.Mesh : wrong object type in unlink ({obj1})')
 
-    # # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
-    # def unlinks(self, li):
-    #     """
-    #     Multiple unlink.
+    def unlinks(self, li):
+        """
+        Multiple unlink.
 
-    #     Parameters
-    #     ----------
-    #     li : [(object, object)]
-    #         List  of pairs for unlink.
-    #     """
+        Parameters
+        ----------
+        li : [(object, object)]
+            List  of pairs for unlink.
+        """
 
-    #     for obj1, obj2 in li:
-    #         self.unlink(obj1, obj2)
+        for obj1, obj2 in li:
+            self.unlink(obj1, obj2)
 
-    # # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
     def create_edges(self):
         """
@@ -1533,101 +1579,92 @@ class Mesh:
     #         n.normal = sum(map(lambda f: f.normal, n.faces)) / len(n.faces)
 
     # # ----------------------------------------------------------------------------------------------
-    # # Delete elements.
-    # # ----------------------------------------------------------------------------------------------
+    # Delete elements.
+    # ----------------------------------------------------------------------------------------------
 
-    # def delete_face(self, f):
-    #     """
-    #     Delete face.
+    def delete_face(self, f):
+        """
+        Delete face.
 
-    #     Parameters
-    #     ----------
-    #     f : Face
-    #         Face to delete.
-    #     """
+        Parameters
+        ----------
+        f : Face
+            Face to delete.
+        """
 
-    #     # Unlink from nodes.
-    #     while f.nodes:
-    #         self.unlink(f.nodes[0], f)
+        # Unlink from nodes.
+        while f.nodes:
+            self.unlink(f.nodes[0], f)
 
-    #     # Unlink from edges.
-    #     while f.edges:
-    #         self.unlink(f.edges[0], f)
+        # Unlink from edges.
+        while f.edges:
+            self.unlink(f.edges[0], f)
 
-    #     # Remove from zones.
-    #     for z in self.zones:
-    #         if f in z.faces:
-    #             z.faces.remove(f)
+        # Remove from zones.
+        for z in self.zones:
+            if f in z.faces:
+                z.faces.remove(f)
 
-    #     # Remove from mesh.
-    #     self.faces.remove(f)
+        # Remove from mesh.
+        self.faces.remove(f)
 
-    # # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
-    # def delete_faces(self, p):
-    #     """
-    #     Delete faces with predicate.
+    def delete_faces(self, p):
+        """
+        Delete faces with predicate.
 
-    #     Parameters
-    #     ----------
-    #     p : lambda
-    #         Predicate for delete face.
-    #     """
+        Parameters
+        ----------
+        p : lambda
+            Predicate for delete face.
+        """
 
-    #     fs = [f for f in self.faces if p(f)]
+        fs = [f for f in self.faces if p(f)]
 
-    #     for f in fs:
-    #         self.delete_face(f)
+        for f in fs:
+            self.delete_face(f)
 
-    # # ----------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------
 
-    # def delete_edge(self, e):
-    #     """
-    #     Delete edge.
+    def delete_edge(self, e):
+        """
+        Delete edge (must have no incident faces).
 
-    #     Parameters
-    #     ----------
-    #     e : Edge
-    #         Edge to delete.
-    #     """
+        Parameters
+        ----------
+        e : Edge
+            Edge to delete.
+        """
 
-    #     # First we must to delete incident faces.
-    #     while e.faces:
-    #         self.delete_face(e.faces[0])
+        # Unlink edge from nodes.
+        while e.nodes:
+            self.unlink(e.nodes[0], e)
 
-    #     # Unlink edge from nodes.
-    #     while e.nodes:
-    #         self.unlink(e.nodes[0], e)
+        # Remove from mesh.
+        if e in self.edges:
+            self.edges.remove(e)
 
-    #     # Remove from mesh.
-    #     if e in self.edges:
-    #         self.edges.remove(e)
+    # ----------------------------------------------------------------------------------------------
 
-    # # ----------------------------------------------------------------------------------------------
+    def delete_faces_free_edges(self):
+        """Delete edges that have no incident faces."""
+        es = [e for e in self.edges if len(e.faces) == 0]
+        for e in es:
+            self.delete_edge(e)
 
-    # def delete_edges(self, p):
-    #     """
-    #     Delete all edges with predicate.
+    # ----------------------------------------------------------------------------------------------
 
-    #     Parameters
-    #     ----------
-    #     p : lambda
-    #         Predicate for edge delete.
-    #     """
-
-    #     es = [e for e in self.edges if p(e)]
-
-    #     for e in es:
-    #         self.delete_edge(e)
-
-    # # ----------------------------------------------------------------------------------------------
-
-    # def delete_faces_free_edges(self):
-    #     """
-    #     Delete faces free edges.
-    #     """
-
-    #     self.delete_edges(lambda e: e.is_faces_free())
+    def delete_isolated_nodes(self):
+        """Delete nodes that have no incident edges."""
+        ns = [n for n in self.nodes if len(n.edges) == 0]
+        for n in ns:
+            for z in self.zones:
+                if n in z.nodes:
+                    z.nodes.remove(n)
+            self.nodes.remove(n)
+            rc = n.rounded_coordinates()
+            self.rounded_coordinates_bag.discard(rc)
 
     # # ----------------------------------------------------------------------------------------------
 

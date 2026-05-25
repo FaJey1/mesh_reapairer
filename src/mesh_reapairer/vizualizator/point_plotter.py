@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from typing import List
 import matplotlib.pyplot as plt
 import numpy as np
-from mesh_reapairer.msu.mesh import *
+from mesh_reapairer.src.mesh_reapairer.msu.mesh import *
 
 
 def plot_point(ax,
