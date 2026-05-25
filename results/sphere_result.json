@@ -1,0 +1,22 @@
+{
+  "mesh": {
+    "faces": 3956,
+    "nodes": 1988,
+    "edges": 5935
+  },
+  "intersections": {
+    "valid_pairs": 257,
+    "affected_faces": 306,
+    "impossible_pairs": 886,
+    "parallel_rejected": 0
+  },
+  "restoration": {
+    "faces_triangulated": 128,
+    "new_faces_created": 383,
+    "neighbor_faces_split": 2,
+    "faces_removed": 4085,
+    "outer_faces_count": 3850,
+    "triangulation_ms": 9628.74,
+    "removal_ms": 395.11
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "figure_width":   24.0,
+  "figure_height":   5.0,
+  "figure_dpi":     100,
+  "suptitle_fontsize": 10,
+
+  "single_panel_width":  10.0,
+  "single_panel_height":  8.0,
+
+  "original_face_color": "#90CAF9",
+  "original_face_alpha":  0.4,
+
+  "background_face_color": "#CCCCCC",
+  "background_face_alpha":  0.08,
+
+  "highlighted_face_color": "#FF8A80",
+  "highlighted_face_alpha":  0.7,
+
+  "new_face_color": "#A5D6A7",
+  "new_face_alpha":  0.70,
+  "kept_face_color": "#CCCCCC",
+  "kept_face_alpha":  0.10,
+
+  "outer_face_color": "#4CAF50",
+  "outer_face_alpha":  0.6,
+
+  "inner_face_color": "#FFCCBC",
+  "inner_face_alpha":  0.35,
+
+  "face_edges_show":      true,
+  "face_edge_color":     "black",
+  "face_edge_linewidth":  0.3,
+
+  "segment_color":             "red",
+  "segment_linewidth":          2.0,
+  "segment_linewidth_panel4":   1.0,
+
+  "graph_alpha_color":        "green",
+  "graph_alpha_linewidth":     2.0,
+  "graph_beta_color":         "orange",
+  "graph_beta_linewidth":      1.2,
+  "graph_beta_linestyle":     "dashed",
+  "graph_recovered_color":    "red",
+  "graph_recovered_linewidth": 2.5,
+  "graph_node_color":         "blue",
+  "graph_node_size":          12.0,
+
+  "axis_label_fontsize":  6,
+  "tick_fontsize":        5,
+  "panel_title_fontsize": 8,
+  "panel_title_pad":      4.0,
+
+  "panel1_title": "1. Original\n{n_faces} faces",
+  "panel2_title": "2. Intersection graph\n{n_segments} segments",
+  "panel3_title": "3. Intersecting cells\n{n_highlighted} highlighted",
+  "panel4_title": "4. After triangulation\n{n_split} split → {n_new} new",
+  "panel5_title": "5. Outer surface\n{n_faces} faces ({n_removed} removed)"
+}
